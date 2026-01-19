@@ -1,0 +1,16 @@
+# Binary
+goforge
+
+# Vendor (use go mod download instead)
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Test output
+test-*/
