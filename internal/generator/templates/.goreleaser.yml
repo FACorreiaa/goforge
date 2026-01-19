@@ -7,9 +7,14 @@ project_name: myapp
 
 before:
   hooks:
+    # Tidy dependencies
     - go mod tidy
+    # Install templ
     - go install github.com/a-h/templ/cmd/templ@latest
+    # Generate templ files
     - templ generate
+    # Build CSS for production (CI runs make ci-setup first)
+    - cd assets && ./tailwindcss -i input.css -o output.css --minify
 
 builds:
   - id: server
@@ -24,6 +29,8 @@ builds:
     goarch:
       - amd64
       - arm64
+    flags:
+      - -trimpath
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -44,7 +51,6 @@ archives:
     files:
       - README.md
       - LICENSE*
-      - assets/**/*
 
 checksum:
   name_template: "checksums.txt"

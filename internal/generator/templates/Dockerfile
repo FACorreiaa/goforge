@@ -4,16 +4,12 @@
 FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git curl
+RUN apk add --no-cache git curl bash
 
 WORKDIR /app
 
 # Install Go tools
 RUN go install github.com/a-h/templ/cmd/templ@latest
-
-# Download Tailwind CLI
-RUN curl -sL -o /usr/local/bin/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 \
-    && chmod +x /usr/local/bin/tailwindcss
 
 # Copy go mod files first for caching
 COPY go.mod go.sum ./
@@ -22,11 +18,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Install Tailwind + DaisyUI using fast installer
+RUN cd assets && curl -sL daisyui.com/fast | bash
+
 # Generate Templ templates
 RUN templ generate
 
-# Build CSS
-RUN tailwindcss -i ./assets/css/input.css -o ./assets/dist/styles.css --minify
+# Build CSS for production
+RUN cd assets && ./tailwindcss -i input.css -o output.css --minify
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server

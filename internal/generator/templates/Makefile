@@ -37,6 +37,13 @@ setup: ## Install all development tools
 tidy: ## Tidy Go modules
 	go mod tidy
 
+ci-setup: ## Setup for CI environments (GitHub Actions)
+	@echo "📦 Installing Go tools for CI..."
+	go install github.com/a-h/templ/cmd/templ@latest
+	@echo "📥 Installing Tailwind CSS + DaisyUI for CI..."
+	@cd assets && curl -sL daisyui.com/fast | bash
+	@echo "✅ CI setup complete!"
+
 # =========================================================================
 # Development
 # =========================================================================

@@ -15,6 +15,13 @@ var (
 	version = "0.1.0"
 )
 
+// Frontend options
+const (
+	FrontendHTMX            = "htmx"
+	FrontendHTMXHyperscript = "htmx-hyperscript"
+	FrontendHTMXAlpine      = "htmx-alpine"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "goforge",
 	Short: "Scaffold production-ready Go projects",
@@ -36,7 +43,11 @@ var newCmd = &cobra.Command{
 	RunE:  runNew,
 }
 
+// Flags
+var frontendFlag string
+
 func init() {
+	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -48,29 +59,22 @@ func Execute() {
 }
 
 func runNew(cmd *cobra.Command, args []string) error {
-	var projectName, modulePath string
+	var projectName, modulePath, frontend string
 
+	// Handle arguments
 	if len(args) >= 2 {
 		projectName = args[0]
 		modulePath = args[1]
 	} else if len(args) == 1 {
 		projectName = args[0]
-		// Prompt for module path
+		// Prompt for module path only
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
 					Title("Module Path").
 					Description("Go module path (e.g., github.com/username/project)").
 					Value(&modulePath).
-					Validate(func(s string) error {
-						if s == "" {
-							return fmt.Errorf("module path is required")
-						}
-						if !strings.Contains(s, "/") {
-							return fmt.Errorf("module path should contain at least one '/'")
-						}
-						return nil
-					}),
+					Validate(validateModulePath),
 			),
 		)
 		if err := form.Run(); err != nil {
@@ -84,33 +88,45 @@ func runNew(cmd *cobra.Command, args []string) error {
 					Title("Project Name").
 					Description("Name of your project directory").
 					Value(&projectName).
-					Validate(func(s string) error {
-						if s == "" {
-							return fmt.Errorf("project name is required")
-						}
-						if strings.ContainsAny(s, " /\\") {
-							return fmt.Errorf("project name cannot contain spaces or slashes")
-						}
-						return nil
-					}),
+					Validate(validateProjectName),
 				huh.NewInput().
 					Title("Module Path").
 					Description("Go module path (e.g., github.com/username/project)").
 					Value(&modulePath).
-					Validate(func(s string) error {
-						if s == "" {
-							return fmt.Errorf("module path is required")
-						}
-						if !strings.Contains(s, "/") {
-							return fmt.Errorf("module path should contain at least one '/'")
-						}
-						return nil
-					}),
+					Validate(validateModulePath),
 			),
 		)
 		if err := form.Run(); err != nil {
 			return err
 		}
+	}
+
+	// Handle frontend selection
+	if frontendFlag != "" {
+		frontend = frontendFlag
+	} else {
+		// Prompt for frontend choice
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Frontend Stack").
+					Description("Choose your frontend enhancement library").
+					Options(
+						huh.NewOption("HTMX only", FrontendHTMX),
+						huh.NewOption("HTMX + Hyperscript (_hyperscript)", FrontendHTMXHyperscript),
+						huh.NewOption("HTMX + Alpine.js", FrontendHTMXAlpine),
+					).
+					Value(&frontend),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+	}
+
+	// Validate frontend choice
+	if frontend != FrontendHTMX && frontend != FrontendHTMXHyperscript && frontend != FrontendHTMXAlpine {
+		frontend = FrontendHTMX // Default to HTMX only
 	}
 
 	// Get absolute path
@@ -124,10 +140,22 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("directory '%s' already exists", projectName)
 	}
 
-	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n\n", projectName, modulePath)
+	frontendLabel := map[string]string{
+		FrontendHTMX:            "HTMX",
+		FrontendHTMXHyperscript: "HTMX + Hyperscript",
+		FrontendHTMXAlpine:      "HTMX + Alpine.js",
+	}[frontend]
 
-	// Generate the project
-	if err := generator.Generate(projectName, modulePath); err != nil {
+	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n", projectName, modulePath)
+	fmt.Printf("   Frontend: %s\n\n", frontendLabel)
+
+	// Generate the project with options
+	opts := generator.Options{
+		ProjectName: projectName,
+		ModulePath:  modulePath,
+		Frontend:    frontend,
+	}
+	if err := generator.GenerateWithOptions(opts); err != nil {
 		return fmt.Errorf("generation failed: %w", err)
 	}
 
@@ -140,5 +168,25 @@ func runNew(cmd *cobra.Command, args []string) error {
 	fmt.Println("─────────────────────────────────────────────────")
 	fmt.Println("\n📚 See README.md for more commands and documentation.")
 
+	return nil
+}
+
+func validateProjectName(s string) error {
+	if s == "" {
+		return fmt.Errorf("project name is required")
+	}
+	if strings.ContainsAny(s, " /\\") {
+		return fmt.Errorf("project name cannot contain spaces or slashes")
+	}
+	return nil
+}
+
+func validateModulePath(s string) error {
+	if s == "" {
+		return fmt.Errorf("module path is required")
+	}
+	if !strings.Contains(s, "/") {
+		return fmt.Errorf("module path should contain at least one '/'")
+	}
 	return nil
 }
