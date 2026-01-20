@@ -11,15 +11,16 @@ services:
     environment:
       - PORT=8080
       - GO_ENV=production
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/myapp?sslmode=disable
+
+<!-- IF DB -->      - DATABASE_URL=postgres://postgres:postgres@db:5432/myapp?sslmode=disable
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy<!-- ENDIF -->
     restart: unless-stopped
     networks:
       - app-network
 
-  # PostgreSQL Database
+<!-- IF DB -->  # PostgreSQL Database
   db:
     image: postgres:16-alpine
     environment:
@@ -37,7 +38,7 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - app-network
+      - app-network<!-- ENDIF -->
 
   # Redis (optional - for sessions/caching)
   # redis:
@@ -51,7 +52,7 @@ services:
   #     - app-network
 
 volumes:
-  postgres_data:
+<!-- IF DB -->  postgres_data:<!-- ENDIF -->
   # redis_data:
 
 networks:

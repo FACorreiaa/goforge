@@ -54,11 +54,13 @@ var newCmd = &cobra.Command{
 var (
 	frontendFlag     string
 	cssFrameworkFlag string
+	noDBFlag         bool
 )
 
 func init() {
 	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
 	newCmd.Flags().StringVarP(&cssFrameworkFlag, "css", "c", "", "CSS framework: daisyui, templui, basecoat")
+	newCmd.Flags().BoolVar(&noDBFlag, "no-db", false, "Skip database setup (Postgres + Goose)")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -71,6 +73,7 @@ func Execute() {
 
 func runNew(cmd *cobra.Command, args []string) error {
 	var projectName, modulePath, frontend, cssFramework string
+	var includeDB = !noDBFlag
 
 	// Handle arguments
 	if len(args) >= 2 {
@@ -168,6 +171,22 @@ func runNew(cmd *cobra.Command, args []string) error {
 		cssFramework = CSSFrameworkDaisyUI // Default to DaisyUI
 	}
 
+	// Handle DB selection if flag not set
+	if !cmd.Flags().Changed("no-db") {
+		// Ask user if they want DB
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Include Database?").
+					Description("PostgreSQL setup with pgx and goose").
+					Value(&includeDB),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(projectName)
 	if err != nil {
@@ -191,9 +210,15 @@ func runNew(cmd *cobra.Command, args []string) error {
 		CSSFrameworkBasecoat: "Basecoat",
 	}[cssFramework]
 
+	dbLabel := "Yes (PostgreSQL)"
+	if !includeDB {
+		dbLabel = "No"
+	}
+
 	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n", projectName, modulePath)
 	fmt.Printf("   Frontend: %s\n", frontendLabel)
-	fmt.Printf("   CSS Framework: %s\n\n", cssLabel)
+	fmt.Printf("   CSS Framework: %s\n", cssLabel)
+	fmt.Printf("   Database: %s\n\n", dbLabel)
 
 	// Generate the project with options
 	opts := generator.Options{
@@ -201,6 +226,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		ModulePath:   modulePath,
 		Frontend:     frontend,
 		CSSFramework: cssFramework,
+		IncludeDB:    includeDB,
 	}
 	if err := generator.GenerateWithOptions(opts); err != nil {
 		return fmt.Errorf("generation failed: %w", err)

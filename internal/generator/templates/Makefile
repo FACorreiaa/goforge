@@ -10,10 +10,10 @@
 PROJECT_NAME := myapp
 BINARY_NAME := server
 
-# Database settings
+<!-- IF DB --># Database settings
 DB_DSN ?= postgres://localhost:5432/$(PROJECT_NAME)?sslmode=disable
 GOOSE_DRIVER := postgres
-GOOSE_MIGRATION_DIR := ./internal/database/migrations
+GOOSE_MIGRATION_DIR := ./internal/database/migrations<!-- ENDIF -->
 
 .PHONY: all build run test clean dev setup help
 
@@ -27,8 +27,9 @@ setup: ## Install all development tools
 	@echo "📦 Installing Go tools..."
 	go install github.com/a-h/templ/cmd/templ@latest
 	go install github.com/air-verse/air@latest
-	go install github.com/pressly/goose/v3/cmd/goose@latest
-	@echo ""
+<!-- IF DB -->	go install github.com/pressly/goose/v3/cmd/goose@latest<!-- ENDIF -->
+	@echo "🧹 Tidying modules..."
+	@go mod tidy
 	<!-- SETUP_COMMAND -->
 	@echo ""
 	@echo "✅ Setup complete! Run 'make dev' to start development."
@@ -39,6 +40,8 @@ tidy: ## Tidy Go modules
 ci-setup: ## Setup for CI environments
 	@echo "📦 Installing Go tools for CI..."
 	go install github.com/a-h/templ/cmd/templ@latest
+	@echo "🧹 Tidying modules..."
+	@go mod tidy
 	<!-- CI_SETUP_COMMAND -->
 	@echo "✅ CI setup complete!"
 
@@ -97,6 +100,7 @@ test-coverage: ## Run tests with coverage
 lint: ## Run golangci-lint
 	golangci-lint run
 
+<!-- IF DB -->
 # =========================================================================
 # Database (Goose)
 # =========================================================================
@@ -116,6 +120,7 @@ db-reset: ## Rollback all migrations
 db-create: ## Create a new migration
 	@read -p "Enter migration name: " name; \
 	goose -dir $(GOOSE_MIGRATION_DIR) create $$name sql
+<!-- ENDIF -->
 
 # =========================================================================
 # Docker

@@ -50,6 +50,7 @@ type Options struct {
 	ModulePath   string
 	Frontend     string
 	CSSFramework string
+	IncludeDB    bool
 }
 
 // Generate creates a new project from the embedded templates (backward compatible)
@@ -59,6 +60,7 @@ func Generate(projectName string, newModule string) error {
 		ModulePath:   newModule,
 		Frontend:     FrontendHTMX,
 		CSSFramework: CSSFrameworkDaisyUI,
+		IncludeDB:    true, // Default to true for backward compatibility
 	})
 }
 
@@ -73,7 +75,7 @@ func GenerateWithOptions(opts Options) error {
 	replacements := getReplacements(opts)
 
 	// Walk through the embedded templates
-	err := fs.WalkDir(templateFS, "templates", func(path string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(templateFS, "templates", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -82,6 +84,26 @@ func GenerateWithOptions(opts Options) error {
 		relPath := strings.TrimPrefix(path, "templates/")
 		if relPath == "" || relPath == "templates" {
 			return nil // Skip replace root
+		}
+
+		// Skip database directory if IncludeDB is false
+		if !opts.IncludeDB && (strings.HasPrefix(relPath, "internal/database") ||
+			strings.HasPrefix(relPath, "docker-compose.yml") && false) {
+			// Check logic for docker-compose: if DB is optional, do we skip file?
+			// docker-compose usually provides DB. If no DB, we might want it for other things?
+			// Current plan says "Wrap db service in <!-- IF DB -->". So don't skip file.
+			// Only skip internal/database folder.
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		if !opts.IncludeDB && strings.HasPrefix(relPath, "internal/database") {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
 		}
 
 		// Determine target path on user's disk
@@ -102,6 +124,9 @@ func GenerateWithOptions(opts Options) error {
 		content := string(data)
 
 		if !isBinaryFile(path) {
+			// Process conditional blocks first
+			content = processConditionalBlocks(content, opts)
+
 			// Replace module path
 			content = strings.ReplaceAll(content, placeholderModule, opts.ModulePath)
 
@@ -112,9 +137,7 @@ func GenerateWithOptions(opts Options) error {
 		}
 
 		// Handle .tmpl extension (strip it from the target)
-		if strings.HasSuffix(targetPath, ".tmpl") {
-			targetPath = strings.TrimSuffix(targetPath, ".tmpl")
-		}
+		targetPath = strings.TrimSuffix(targetPath, ".tmpl")
 
 		// Write to disk
 		if err := os.WriteFile(targetPath, []byte(content), 0644); err != nil {
@@ -124,8 +147,57 @@ func GenerateWithOptions(opts Options) error {
 		fmt.Printf("  ✓ %s\n", strings.TrimPrefix(targetPath, opts.ProjectName+"/"))
 		return nil
 	})
+}
 
-	return err
+// processConditionalBlocks removes content between <!-- IF DB --> and <!-- ENDIF --> if condition is false
+// Also supports <!-- IF NOT DB -->
+func processConditionalBlocks(content string, opts Options) string {
+	// Process DB blocks
+	if opts.IncludeDB {
+		// Keep content, remove tags
+		content = removeTags(content, "<!-- IF DB -->", "<!-- ENDIF -->")
+		// Remove NOT DB content
+		content = removeBlock(content, "<!-- IF NOT DB -->", "<!-- ENDIF -->")
+	} else {
+		// Remove DB content
+		content = removeBlock(content, "<!-- IF DB -->", "<!-- ENDIF -->")
+		// Keep NOT DB content, remove tags
+		content = removeTags(content, "<!-- IF NOT DB -->", "<!-- ENDIF -->")
+	}
+	// Note: Simple regex or string manipulation.
+	// Nested blocks not supported with simple logic, but sufficient for this use case.
+
+	return content
+}
+
+func removeBlock(content, startTag, endTag string) string {
+	for {
+		startIndex := strings.Index(content, startTag)
+		if startIndex == -1 {
+			break
+		}
+		endIndex := strings.Index(content, endTag)
+		if endIndex == -1 {
+			break
+		}
+		// Include tags in removal
+		// Find end of endTag
+		endTagEnd := endIndex + len(endTag)
+		if endIndex > startIndex {
+			content = content[:startIndex] + content[endTagEnd:]
+		} else {
+			// Malformed or nested incorrectly, just break to avoid infinite loop
+			break
+		}
+	}
+	return content
+}
+
+// removeTags removes the tags but keeps the content inside
+func removeTags(content, startTag, endTag string) string {
+	content = strings.ReplaceAll(content, startTag, "")
+	content = strings.ReplaceAll(content, endTag, "")
+	return content
 }
 
 func getReplacements(opts Options) map[string]string {

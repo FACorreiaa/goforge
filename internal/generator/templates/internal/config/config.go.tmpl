@@ -9,7 +9,7 @@ import (
 type Config struct {
 	Port        int
 	Environment string
-	DatabaseURL string
+<!-- IF DB -->	DatabaseURL string<!-- ENDIF -->
 	Debug       bool
 }
 
@@ -20,7 +20,7 @@ func Load() *Config {
 	return &Config{
 		Port:        port,
 		Environment: getEnv("GO_ENV", "development"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://localhost:5432/myapp?sslmode=disable"),
+<!-- IF DB -->		DatabaseURL: getEnv("DATABASE_URL", "postgres://localhost:5432/myapp?sslmode=disable"),<!-- ENDIF -->
 		Debug:       getEnv("DEBUG", "false") == "true",
 	}
 }
