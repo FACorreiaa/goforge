@@ -29,8 +29,7 @@ setup: ## Install all development tools
 	go install github.com/air-verse/air@latest
 	go install github.com/pressly/goose/v3/cmd/goose@latest
 	@echo ""
-	@echo "📥 Installing Tailwind CSS + DaisyUI..."
-	@cd assets && curl -sL daisyui.com/fast | bash
+	<!-- SETUP_COMMAND -->
 	@echo ""
 	@echo "✅ Setup complete! Run 'make dev' to start development."
 
@@ -40,8 +39,8 @@ tidy: ## Tidy Go modules
 ci-setup: ## Setup for CI environments (GitHub Actions)
 	@echo "📦 Installing Go tools for CI..."
 	go install github.com/a-h/templ/cmd/templ@latest
-	@echo "📥 Installing Tailwind CSS + DaisyUI for CI..."
-	@cd assets && curl -sL daisyui.com/fast | bash
+	@echo "📥 Installing CSS framework for CI..."
+	<!-- SETUP_COMMAND -->
 	@echo "✅ CI setup complete!"
 
 # =========================================================================
@@ -56,13 +55,13 @@ dev-air:
 	@GO_ENV=development air
 
 dev-tailwind:
-	@cd assets && ./tailwindcss -i input.css -o output.css --watch
+	<!-- CSS_BUILD_COMMAND --> --watch
 
 templ: ## Generate Templ templates
 	templ generate
 
 css: ## Build CSS once
-	@cd assets && ./tailwindcss -i input.css -o output.css
+	<!-- CSS_BUILD_COMMAND -->
 
 # =========================================================================
 # Build
@@ -70,7 +69,7 @@ css: ## Build CSS once
 
 build: templ ## Build production binary
 	@echo "🔨 Building CSS..."
-	@cd assets && ./tailwindcss -i input.css -o output.css --minify
+	<!-- CSS_BUILD_COMMAND --> --minify
 	@echo "🔨 Building binary..."
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o ./bin/$(BINARY_NAME) ./cmd/server
 	@echo "✅ Build complete: ./bin/$(BINARY_NAME)"
@@ -81,7 +80,7 @@ run: build ## Build and run the application
 clean: ## Remove build artifacts
 	rm -rf bin/
 	rm -rf tmp/
-	rm -f assets/output.css
+	rm -f assets/css/output.css
 	rm -f assets/tailwindcss
 	find . -name "*_templ.go" -delete
 

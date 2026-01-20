@@ -22,6 +22,13 @@ const (
 	FrontendHTMXAlpine      = "htmx-alpine"
 )
 
+// CSS Framework options
+const (
+	CSSFrameworkDaisyUI  = "daisyui"
+	CSSFrameworkTemplUI  = "templui"
+	CSSFrameworkBasecoat = "basecoat"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "goforge",
 	Short: "Scaffold production-ready Go projects",
@@ -44,10 +51,14 @@ var newCmd = &cobra.Command{
 }
 
 // Flags
-var frontendFlag string
+var (
+	frontendFlag    string
+	cssFrameworkFlag string
+)
 
 func init() {
 	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
+	newCmd.Flags().StringVarP(&cssFrameworkFlag, "css", "c", "", "CSS framework: daisyui, templui, basecoat")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -59,7 +70,7 @@ func Execute() {
 }
 
 func runNew(cmd *cobra.Command, args []string) error {
-	var projectName, modulePath, frontend string
+	var projectName, modulePath, frontend, cssFramework string
 
 	// Handle arguments
 	if len(args) >= 2 {
@@ -129,6 +140,34 @@ func runNew(cmd *cobra.Command, args []string) error {
 		frontend = FrontendHTMX // Default to HTMX only
 	}
 
+	// Handle CSS framework selection
+	if cssFrameworkFlag != "" {
+		cssFramework = cssFrameworkFlag
+	} else {
+		// Prompt for CSS framework choice
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("CSS Framework").
+					Description("Choose your CSS component framework").
+					Options(
+						huh.NewOption("DaisyUI - Component library with themes", CSSFrameworkDaisyUI),
+						huh.NewOption("TemplUI - Go/Templ component library", CSSFrameworkTemplUI),
+						huh.NewOption("Basecoat - shadcn/ui-style components", CSSFrameworkBasecoat),
+					).
+					Value(&cssFramework),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+	}
+
+	// Validate CSS framework choice
+	if cssFramework != CSSFrameworkDaisyUI && cssFramework != CSSFrameworkTemplUI && cssFramework != CSSFrameworkBasecoat {
+		cssFramework = CSSFrameworkDaisyUI // Default to DaisyUI
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(projectName)
 	if err != nil {
@@ -146,14 +185,22 @@ func runNew(cmd *cobra.Command, args []string) error {
 		FrontendHTMXAlpine:      "HTMX + Alpine.js",
 	}[frontend]
 
+	cssLabel := map[string]string{
+		CSSFrameworkDaisyUI:  "DaisyUI",
+		CSSFrameworkTemplUI:  "TemplUI",
+		CSSFrameworkBasecoat: "Basecoat",
+	}[cssFramework]
+
 	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n", projectName, modulePath)
-	fmt.Printf("   Frontend: %s\n\n", frontendLabel)
+	fmt.Printf("   Frontend: %s\n", frontendLabel)
+	fmt.Printf("   CSS Framework: %s\n\n", cssLabel)
 
 	// Generate the project with options
 	opts := generator.Options{
-		ProjectName: projectName,
-		ModulePath:  modulePath,
-		Frontend:    frontend,
+		ProjectName:  projectName,
+		ModulePath:   modulePath,
+		Frontend:     frontend,
+		CSSFramework: cssFramework,
 	}
 	if err := generator.GenerateWithOptions(opts); err != nil {
 		return fmt.Errorf("generation failed: %w", err)

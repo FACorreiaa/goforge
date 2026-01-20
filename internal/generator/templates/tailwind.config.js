@@ -11,6 +11,5 @@ module.exports = {
             },
         },
     },
-    plugins: [],
-    // DaisyUI is loaded via CDN, so no plugin needed here
+    plugins: [<!-- TAILWIND_PLUGIN -->]<!-- DAISYUI_CONFIG -->
 }

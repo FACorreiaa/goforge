@@ -1,0 +1,45 @@
+# Binaries
+assets/tailwindcss
+tailwindcss
+*.exe
+
+# Build artifacts
+server
+bin/
+tmp/
+
+# Development files
+.env
+.env.local
+*.log
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Testing
+*_test.go
+testdata/
+
+# Git
+.git
+.gitignore
+
+# DaisyUI artifacts (regenerated during Docker build)
+assets/js/daisyui.mjs
+assets/js/daisyui-theme.mjs
+
+# Dependencies
+node_modules/
+vendor/
