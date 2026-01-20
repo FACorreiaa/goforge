@@ -13,7 +13,15 @@ tmp/
 *_templ.go
 
 # Tailwind CLI binary (downloaded via make setup)
+tailwindcss
 assets/tailwindcss
+
+# DaisyUI artifacts (downloaded via make setup for DaisyUI)
+assets/js/daisyui.mjs
+assets/js/daisyui-theme.mjs
+
+# Generated CSS
+assets/css/output.css
 
 # Dependencies
 vendor/

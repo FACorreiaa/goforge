@@ -18,6 +18,14 @@ const (
 
 	// Frontend placeholders in templates
 	placeholderFrontendScripts = "<!-- FRONTEND_SCRIPTS -->"
+
+	// CSS Framework placeholders in templates
+	placeholderCSSInputImport  = "<!-- CSS_INPUT_IMPORT -->"
+	placeholderCSSEmbedPath    = "<!-- CSS_EMBED_PATH -->"
+	placeholderTailwindPlugin  = "<!-- TAILWIND_PLUGIN -->"
+	placeholderDaisyUIConfig   = "<!-- DAISYUI_CONFIG -->"
+	placeholderSetupCommand    = "<!-- SETUP_COMMAND -->"
+	placeholderCSSBuildCommand = "<!-- CSS_BUILD_COMMAND -->"
 )
 
 // Frontend constants
@@ -27,19 +35,28 @@ const (
 	FrontendHTMXAlpine      = "htmx-alpine"
 )
 
+// CSS Framework constants
+const (
+	CSSFrameworkDaisyUI = "daisyui"
+	CSSFrameworkTemplUI = "templui"
+	CSSFrameworkBasecoat = "basecoat"
+)
+
 // Options for project generation
 type Options struct {
-	ProjectName string
-	ModulePath  string
-	Frontend    string // htmx, htmx-hyperscript, htmx-alpine
+	ProjectName  string
+	ModulePath   string
+	Frontend     string // htmx, htmx-hyperscript, htmx-alpine
+	CSSFramework string // daisyui, templui, basecoat
 }
 
 // Generate creates a new project from the embedded templates (backward compatible)
 func Generate(projectName string, newModule string) error {
 	return GenerateWithOptions(Options{
-		ProjectName: projectName,
-		ModulePath:  newModule,
-		Frontend:    FrontendHTMX,
+		ProjectName:  projectName,
+		ModulePath:   newModule,
+		Frontend:     FrontendHTMX,
+		CSSFramework: CSSFrameworkDaisyUI,
 	})
 }
 
@@ -52,6 +69,9 @@ func GenerateWithOptions(opts Options) error {
 
 	// Get frontend scripts based on selection
 	frontendScripts := getFrontendScripts(opts.Frontend)
+
+	// Get CSS framework configuration
+	cssConfig := getCSSFrameworkConfig(opts.CSSFramework)
 
 	// Walk through the embedded templates
 	err := fs.WalkDir(templateFS, "templates", func(path string, d fs.DirEntry, err error) error {
@@ -88,6 +108,13 @@ func GenerateWithOptions(opts Options) error {
 			content = strings.ReplaceAll(content, placeholderModule, opts.ModulePath)
 			// Replace frontend scripts placeholder
 			content = strings.ReplaceAll(content, placeholderFrontendScripts, frontendScripts)
+			// Replace CSS framework placeholders
+			content = strings.ReplaceAll(content, placeholderCSSInputImport, cssConfig.InputImport)
+			content = strings.ReplaceAll(content, placeholderCSSEmbedPath, cssConfig.EmbedPath)
+			content = strings.ReplaceAll(content, placeholderTailwindPlugin, cssConfig.TailwindPlugin)
+			content = strings.ReplaceAll(content, placeholderDaisyUIConfig, cssConfig.DaisyUIConfig)
+			content = strings.ReplaceAll(content, placeholderSetupCommand, cssConfig.SetupCommand)
+			content = strings.ReplaceAll(content, placeholderCSSBuildCommand, cssConfig.BuildCommand)
 		}
 
 		// Handle .tmpl extension (strip it from the target)
@@ -141,4 +168,86 @@ func isBinaryFile(path string) bool {
 		}
 	}
 	return false
+}
+
+// CSSFrameworkConfig holds configuration for different CSS frameworks
+type CSSFrameworkConfig struct {
+	InputImport    string // Content for input.css @import/@plugin
+	EmbedPath      string // Path for embed.FS in efs.go
+	TailwindPlugin string // Plugin config for tailwind.config.js
+	DaisyUIConfig  string // DaisyUI config for tailwind.config.js
+	SetupCommand   string // Setup command for Makefile
+	BuildCommand   string // Build command for CSS
+}
+
+// getCSSFrameworkConfig returns configuration based on CSS framework choice
+func getCSSFrameworkConfig(framework string) CSSFrameworkConfig {
+	switch framework {
+	case CSSFrameworkDaisyUI:
+		return CSSFrameworkConfig{
+			InputImport: `@import "tailwindcss";
+
+@source not "./tailwindcss";
+@source not "./daisyui{,*}.mjs";
+
+@plugin "../js/daisyui.mjs";`,
+			EmbedPath:      "css/output.css js/*.mjs static/*",
+			TailwindPlugin: `require('./assets/js/daisyui.mjs')`,
+			DaisyUIConfig: `,
+	daisyui: {
+		themes: ["light", "dark"],
+		darkTheme: "dark",
+		base: true,
+		styled: true,
+		utils: true,
+	}`,
+			SetupCommand: `@echo "📥 Installing Tailwind CSS + DaisyUI..."
+	@cd assets && curl -sL daisyui.com/fast | bash`,
+			BuildCommand: `@cd assets && ./tailwindcss -i css/input.css -o css/output.css`,
+		}
+
+	case CSSFrameworkTemplUI:
+		return CSSFrameworkConfig{
+			InputImport: `@import "tailwindcss";
+
+/* TemplUI Base Styles */
+@theme {
+	--color-background: oklch(100% 0 0);
+	--color-foreground: oklch(10% 0 0);
+	--color-primary: oklch(50% 0.2 250);
+	--color-secondary: oklch(70% 0.15 200);
+}
+
+@theme dark {
+	--color-background: oklch(10% 0 0);
+	--color-foreground: oklch(95% 0 0);
+}`,
+			EmbedPath:      "css/output.css static/*",
+			TailwindPlugin: "",
+			DaisyUIConfig:  "",
+			SetupCommand: `@echo "📥 Installing Tailwind CSS..."
+	@cd assets && curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$$(uname -s | tr '[:upper:]' '[:lower:]')-$$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') -Lo tailwindcss && chmod +x tailwindcss
+	@echo "📦 Installing TemplUI..."
+	@go install github.com/templui/templui/cmd/templui@latest`,
+			BuildCommand: `@cd assets && ./tailwindcss -i css/input.css -o css/output.css`,
+		}
+
+	case CSSFrameworkBasecoat:
+		return CSSFrameworkConfig{
+			InputImport: `@import "tailwindcss";
+@import "basecoat-css";`,
+			EmbedPath:      "css/output.css static/*",
+			TailwindPlugin: "",
+			DaisyUIConfig:  "",
+			SetupCommand: `@echo "📥 Installing Tailwind CSS..."
+	@cd assets && curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-$$(uname -s | tr '[:upper:]' '[:lower:]')-$$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/') -Lo tailwindcss && chmod +x tailwindcss
+	@echo "📦 Installing Basecoat..."
+	@npm install basecoat-css`,
+			BuildCommand: `@cd assets && ./tailwindcss -i css/input.css -o css/output.css`,
+		}
+
+	default:
+		// Default to DaisyUI
+		return getCSSFrameworkConfig(CSSFrameworkDaisyUI)
+	}
 }
