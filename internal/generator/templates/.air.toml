@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 [build]
   # 1. Generate Templ files
   # 2. Build the Go binary
-  cmd = "templ generate && go build -o ./tmp/main ./cmd/server"
+    cmd = "<!-- AIR_BUILD_CMD -->"
   
   # Binary to run after build
   bin = "./tmp/main"

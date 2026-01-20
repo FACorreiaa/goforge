@@ -18,14 +18,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Install Tailwind + DaisyUI using fast installer
-RUN cd assets && curl -sL daisyui.com/fast | bash
+# Install CSS Framework & Assets
+<!-- DOCKER_SETUP_RUN -->
 
 # Generate Templ templates
 RUN templ generate
 
 # Build CSS for production
-RUN cd assets && ./tailwindcss -i input.css -o output.css --minify
+<!-- DOCKER_BUILD_CSS -->
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/server ./cmd/server
@@ -46,7 +46,9 @@ RUN addgroup -g 1001 -S appgroup && \
 
 # Copy binary and assets from builder
 COPY --from=builder /app/server .
-COPY --from=builder /app/assets ./assets
+# Copy only the compiled CSS and static assets
+COPY --from=builder /app/assets/css/output.css ./assets/css/output.css
+COPY --from=builder /app/assets/static ./assets/static
 
 # Set ownership
 RUN chown -R appuser:appgroup /app
