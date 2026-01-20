@@ -52,7 +52,7 @@ var newCmd = &cobra.Command{
 
 // Flags
 var (
-	frontendFlag    string
+	frontendFlag     string
 	cssFrameworkFlag string
 )
 

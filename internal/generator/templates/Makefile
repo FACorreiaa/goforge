@@ -1,7 +1,7 @@
 # GoForge Project Makefile
 # =========================================================================
 # Usage:
-#   make setup    - Install all tools (Air, Templ, Goose, Tailwind + DaisyUI)
+#   make setup    - Install all tools (Air, Templ, Goose, Tailwind + CSS Framework)
 #   make dev      - Start development server with live reload
 #   make build    - Build production binary
 #   make test     - Run tests
@@ -10,7 +10,7 @@
 PROJECT_NAME := myapp
 BINARY_NAME := server
 
-# Database settings (override via .env or environment)
+# Database settings
 DB_DSN ?= postgres://localhost:5432/$(PROJECT_NAME)?sslmode=disable
 GOOSE_DRIVER := postgres
 GOOSE_MIGRATION_DIR := ./internal/database/migrations
@@ -36,11 +36,10 @@ setup: ## Install all development tools
 tidy: ## Tidy Go modules
 	go mod tidy
 
-ci-setup: ## Setup for CI environments (GitHub Actions)
+ci-setup: ## Setup for CI environments
 	@echo "📦 Installing Go tools for CI..."
 	go install github.com/a-h/templ/cmd/templ@latest
-	@echo "📥 Installing CSS framework for CI..."
-	<!-- SETUP_COMMAND -->
+	<!-- CI_SETUP_COMMAND -->
 	@echo "✅ CI setup complete!"
 
 # =========================================================================
@@ -49,13 +48,13 @@ ci-setup: ## Setup for CI environments (GitHub Actions)
 
 dev: ## Start development server with live reload
 	@echo "🚀 Starting development server..."
-	@make -j2 dev-air dev-tailwind
+	<!-- DEV_COMMAND -->
 
 dev-air:
 	@GO_ENV=development air
 
 dev-tailwind:
-	<!-- CSS_BUILD_COMMAND --> --watch
+	<!-- CSS_WATCH_COMMAND -->
 
 templ: ## Generate Templ templates
 	templ generate
@@ -81,7 +80,7 @@ clean: ## Remove build artifacts
 	rm -rf bin/
 	rm -rf tmp/
 	rm -f assets/css/output.css
-	rm -f assets/tailwindcss
+	rm -f tailwindcss
 	find . -name "*_templ.go" -delete
 
 # =========================================================================
@@ -114,7 +113,7 @@ db-down: ## Rollback the last migration
 db-reset: ## Rollback all migrations
 	goose -dir $(GOOSE_MIGRATION_DIR) $(GOOSE_DRIVER) "$(DB_DSN)" reset
 
-db-create: ## Create a new migration (usage: make db-create name=create_users)
+db-create: ## Create a new migration
 	@read -p "Enter migration name: " name; \
 	goose -dir $(GOOSE_MIGRATION_DIR) create $$name sql
 
