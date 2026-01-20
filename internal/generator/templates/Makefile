@@ -28,8 +28,7 @@ setup: ## Install all development tools
 	go install github.com/a-h/templ/cmd/templ@latest
 	go install github.com/air-verse/air@latest
 <!-- IF DB -->	go install github.com/pressly/goose/v3/cmd/goose@latest<!-- ENDIF -->
-	@echo "⚡ Generating templates..."
-	@templ generate
+
 	@echo "🧹 Tidying modules..."
 	@go mod tidy
 	<!-- SETUP_COMMAND -->
@@ -42,8 +41,6 @@ tidy: ## Tidy Go modules
 ci-setup: ## Setup for CI environments
 	@echo "📦 Installing Go tools for CI..."
 	go install github.com/a-h/templ/cmd/templ@latest
-	@echo "⚡ Generating templates..."
-	@templ generate
 	@echo "🧹 Tidying modules..."
 	@go mod tidy
 	<!-- CI_SETUP_COMMAND -->
@@ -53,17 +50,23 @@ ci-setup: ## Setup for CI environments
 # Development
 # =========================================================================
 
-dev: ## Start development server with live reload
-	@echo "🚀 Starting development server..."
-	<!-- DEV_COMMAND -->
-
-dev-air:
+dev: ## Start development server with live reload (using Air)
+	@echo "🚀 Starting development server with Air..."
 	@GO_ENV=development air
 
-dev-tailwind:
-	<!-- CSS_WATCH_COMMAND -->
+dev-templ: ## Start development with Templ proxy (auto browser refresh)
+	@echo "🚀 Starting with Templ proxy..."
+	@echo "📡 Access via: http://127.0.0.1:7331 (auto-refresh enabled)"
+	@echo "📡 Direct access: http://localhost:8080 (manual refresh needed)"
+	@GO_ENV=development make -j2 dev-templ-watch dev-tailwind-watch
 
-templ: ## Generate Templ templates
+dev-templ-watch:
+	@templ generate --watch --proxy="http://localhost:8080" --cmd="go run ./cmd/server"
+
+dev-tailwind-watch:
+	@sleep 2 && ./tailwindcss -i assets/css/index.css -o assets/css/output.css --watch
+
+templ: ## Generate Templ templates once
 	templ generate
 
 css: ## Build CSS once
@@ -141,6 +144,20 @@ docker-compose-up: ## Start with docker-compose
 
 docker-compose-down: ## Stop docker-compose
 	docker-compose down
+
+<!-- IF DEPLOY_HETZNER -->
+# =========================================================================
+# Deployment (Hetzner + Caddy)
+# =========================================================================
+
+deploy: build ## Deploy to Hetzner VPS
+	@echo "🚀 Deploying to Hetzner..."
+	@./deploy/deploy.sh
+
+deploy-setup: ## Setup deployment on remote server (first time only)
+	@echo "📦 Setting up Hetzner VPS..."
+	@./deploy/setup-server.sh
+<!-- ENDIF -->
 
 # =========================================================================
 # Help

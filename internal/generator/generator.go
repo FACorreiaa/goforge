@@ -44,23 +44,31 @@ const (
 	CSSFrameworkBasecoat = "basecoat"
 )
 
+// Deployment provider options
+const (
+	DeployNone         = "none"
+	DeployHetznerCaddy = "hetzner-caddy"
+)
+
 // Options for project generation
 type Options struct {
-	ProjectName  string
-	ModulePath   string
-	Frontend     string
-	CSSFramework string
-	IncludeDB    bool
+	ProjectName    string
+	ModulePath     string
+	Frontend       string
+	CSSFramework   string
+	IncludeDB      bool
+	DeployProvider string
 }
 
 // Generate creates a new project from the embedded templates (backward compatible)
 func Generate(projectName string, newModule string) error {
 	return GenerateWithOptions(Options{
-		ProjectName:  projectName,
-		ModulePath:   newModule,
-		Frontend:     FrontendHTMX,
-		CSSFramework: CSSFrameworkDaisyUI,
-		IncludeDB:    true, // Default to true for backward compatibility
+		ProjectName:    projectName,
+		ModulePath:     newModule,
+		Frontend:       FrontendHTMX,
+		CSSFramework:   CSSFrameworkDaisyUI,
+		IncludeDB:      true,       // Default to true for backward compatibility
+		DeployProvider: DeployNone, // Default to no deployment
 	})
 }
 
@@ -100,6 +108,14 @@ func GenerateWithOptions(opts Options) error {
 		}
 
 		if !opts.IncludeDB && strings.HasPrefix(relPath, "internal/database") {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		// Skip deploy directory if DeployProvider is none
+		if opts.DeployProvider != DeployHetznerCaddy && strings.HasPrefix(relPath, "deploy") {
 			if d.IsDir() {
 				return fs.SkipDir
 			}
@@ -150,7 +166,7 @@ func GenerateWithOptions(opts Options) error {
 }
 
 // processConditionalBlocks removes content between <!-- IF DB --> and <!-- ENDIF --> if condition is false
-// Also supports <!-- IF NOT DB -->
+// Also supports <!-- IF NOT DB --> and <!-- IF DEPLOY_HETZNER -->
 func processConditionalBlocks(content string, opts Options) string {
 	// Process DB blocks
 	if opts.IncludeDB {
@@ -164,6 +180,16 @@ func processConditionalBlocks(content string, opts Options) string {
 		// Keep NOT DB content, remove tags
 		content = removeTags(content, "<!-- IF NOT DB -->", "<!-- ENDIF -->")
 	}
+
+	// Process DEPLOY_HETZNER blocks
+	if opts.DeployProvider == DeployHetznerCaddy {
+		// Keep content, remove tags
+		content = removeTags(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- ENDIF -->")
+	} else {
+		// Remove DEPLOY_HETZNER content
+		content = removeBlock(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- ENDIF -->")
+	}
+
 	// Note: Simple regex or string manipulation.
 	// Nested blocks not supported with simple logic, but sufficient for this use case.
 
@@ -275,17 +301,14 @@ RUN sed -i 's|./daisyui.mjs|../js/daisyui.mjs|g' assets/css/input.css
 	@mkdir -p assets/css assets/js
 	@cd assets && curl -sL daisyui.com/fast | bash
 	@mv assets/tailwindcss ./tailwindcss 2>/dev/null || true
-	@echo "Downloading Basecoat CSS..."
-	@curl -sL -o assets/css/basecoat.min.css https://cdn.jsdelivr.net/npm/basecoat-css@latest/dist/basecoat.min.css
 	@echo "Creating assets/css/index.css..."
 	@echo '@import "tailwindcss"; @import "./basecoat.min.css";' > assets/css/index.css
 	@echo "Cleaning up DaisyUI files..."
 	@rm assets/input.css assets/output.css assets/daisyui.mjs assets/daisyui-theme.mjs 2>/dev/null || true%s`, jsDownloads)
 
 		dockerSetupRun = fmt.Sprintf(`RUN cd assets && curl -sL daisyui.com/fast | bash
-RUN mkdir -p assets/css assets/js && \
+RUN mkdir -p assets/js && \
     mv assets/tailwindcss .
-RUN curl -sL -o assets/css/basecoat.min.css https://cdn.jsdelivr.net/npm/basecoat-css@latest/dist/basecoat.min.css
 RUN echo '@import "tailwindcss"; @import "./basecoat.min.css";' > assets/css/index.css
 RUN rm assets/input.css assets/output.css assets/daisyui* 2>/dev/null || true
 # Download JS

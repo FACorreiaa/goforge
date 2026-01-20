@@ -63,7 +63,8 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ```bash
 # Development
-make dev              # Start with live reload (Air + Tailwind)
+make dev              # Start with live reload (Air)
+make dev-templ        # Start with Templ proxy (auto browser refresh)
 make templ            # Generate Templ templates
 
 # Building
@@ -137,6 +138,37 @@ docker run -p 8080:8080 --env-file .env myapp
 # Create a release
 goreleaser release --clean
 ```
+
+<!-- IF DEPLOY_HETZNER -->
+### Hetzner + Caddy
+
+This project includes deployment configuration for Hetzner VPS with Caddy reverse proxy.
+
+**First-time setup:**
+```bash
+# 1. Add to .env:
+#    DEPLOY_HOST=root@your-server-ip
+#    DEPLOY_PATH=/opt/myapp
+
+# 2. Setup the server (installs Caddy, configures firewall)
+make deploy-setup
+
+# 3. Edit deploy/Caddyfile and replace YOUR_DOMAIN
+
+# 4. Upload .env to server
+scp .env root@your-server-ip:/opt/myapp/.env
+```
+
+**Deploy updates:**
+```bash
+make deploy
+```
+
+The deploy script will:
+1. Build the production binary for Linux
+2. Upload binary and assets via SSH
+3. Restart the systemd service
+<!-- ENDIF -->
 
 ## 📚 Resources
 

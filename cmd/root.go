@@ -29,6 +29,12 @@ const (
 	CSSFrameworkBasecoat = "basecoat"
 )
 
+// Deployment provider options
+const (
+	DeployNone         = "none"
+	DeployHetznerCaddy = "hetzner-caddy"
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "goforge",
 	Short: "Scaffold production-ready Go projects",
@@ -52,14 +58,16 @@ var newCmd = &cobra.Command{
 
 // Flags
 var (
-	frontendFlag     string
-	cssFrameworkFlag string
-	noDBFlag         bool
+	frontendFlag       string
+	cssFrameworkFlag   string
+	deployProviderFlag string
+	noDBFlag           bool
 )
 
 func init() {
 	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
 	newCmd.Flags().StringVarP(&cssFrameworkFlag, "css", "c", "", "CSS framework: daisyui, templui, basecoat")
+	newCmd.Flags().StringVarP(&deployProviderFlag, "deploy", "d", "", "Deployment provider: none, hetzner-caddy")
 	newCmd.Flags().BoolVar(&noDBFlag, "no-db", false, "Skip database setup (Postgres + Goose)")
 	rootCmd.AddCommand(newCmd)
 }
@@ -72,7 +80,7 @@ func Execute() {
 }
 
 func runNew(cmd *cobra.Command, args []string) error {
-	var projectName, modulePath, frontend, cssFramework string
+	var projectName, modulePath, frontend, cssFramework, deployProvider string
 	var includeDB = !noDBFlag
 
 	// Handle arguments
@@ -187,6 +195,33 @@ func runNew(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Handle deployment provider selection
+	if deployProviderFlag != "" {
+		deployProvider = deployProviderFlag
+	} else {
+		// Prompt for deployment provider choice
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Deployment Provider").
+					Description("Include deployment configuration (optional)").
+					Options(
+						huh.NewOption("None - Skip deployment files", DeployNone),
+						huh.NewOption("Hetzner + Caddy - VPS with reverse proxy", DeployHetznerCaddy),
+					).
+					Value(&deployProvider),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+	}
+
+	// Validate deployment provider choice
+	if deployProvider != DeployNone && deployProvider != DeployHetznerCaddy {
+		deployProvider = DeployNone // Default to no deployment
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(projectName)
 	if err != nil {
@@ -215,18 +250,25 @@ func runNew(cmd *cobra.Command, args []string) error {
 		dbLabel = "No"
 	}
 
+	deployLabel := map[string]string{
+		DeployNone:         "None",
+		DeployHetznerCaddy: "Hetzner + Caddy",
+	}[deployProvider]
+
 	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n", projectName, modulePath)
 	fmt.Printf("   Frontend: %s\n", frontendLabel)
 	fmt.Printf("   CSS Framework: %s\n", cssLabel)
-	fmt.Printf("   Database: %s\n\n", dbLabel)
+	fmt.Printf("   Database: %s\n", dbLabel)
+	fmt.Printf("   Deployment: %s\n\n", deployLabel)
 
 	// Generate the project with options
 	opts := generator.Options{
-		ProjectName:  projectName,
-		ModulePath:   modulePath,
-		Frontend:     frontend,
-		CSSFramework: cssFramework,
-		IncludeDB:    includeDB,
+		ProjectName:    projectName,
+		ModulePath:     modulePath,
+		Frontend:       frontend,
+		CSSFramework:   cssFramework,
+		IncludeDB:      includeDB,
+		DeployProvider: deployProvider,
 	}
 	if err := generator.GenerateWithOptions(opts); err != nil {
 		return fmt.Errorf("generation failed: %w", err)
@@ -238,6 +280,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  cd %s\n", projectName)
 	fmt.Println("  make setup    # Install tools (Air, Templ, Goose, Tailwind)")
 	fmt.Println("  make dev      # Start development server with live reload")
+	fmt.Println("  make dev-templ # Start with Templ proxy (auto browser refresh)")
 	fmt.Println("─────────────────────────────────────────────────")
 	fmt.Println("\n📚 See README.md for more commands and documentation.")
 

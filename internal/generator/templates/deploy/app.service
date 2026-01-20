@@ -1,0 +1,35 @@
+[Unit]
+Description=GoForge Application
+Documentation=https://github.com/goforge/scaffold
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/myapp
+ExecStart=/opt/myapp/server
+Restart=always
+RestartSec=5
+
+# Environment
+EnvironmentFile=/opt/myapp/.env
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/myapp
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=myapp
+
+# Resource limits
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
