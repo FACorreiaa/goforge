@@ -28,6 +28,8 @@ setup: ## Install all development tools
 	go install github.com/a-h/templ/cmd/templ@latest
 	go install github.com/air-verse/air@latest
 <!-- IF DB -->	go install github.com/pressly/goose/v3/cmd/goose@latest<!-- ENDIF -->
+	@echo "⚡ Generating templates..."
+	@templ generate
 	@echo "🧹 Tidying modules..."
 	@go mod tidy
 	<!-- SETUP_COMMAND -->
@@ -40,6 +42,8 @@ tidy: ## Tidy Go modules
 ci-setup: ## Setup for CI environments
 	@echo "📦 Installing Go tools for CI..."
 	go install github.com/a-h/templ/cmd/templ@latest
+	@echo "⚡ Generating templates..."
+	@templ generate
 	@echo "🧹 Tidying modules..."
 	@go mod tidy
 	<!-- CI_SETUP_COMMAND -->
