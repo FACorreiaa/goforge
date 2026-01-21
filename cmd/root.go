@@ -29,6 +29,12 @@ const (
 	CSSFrameworkBasecoat = "basecoat"
 )
 
+// Theme options
+const (
+	ThemeNone     = "none"
+	ThemeCaffeine = "caffeine"
+)
+
 // Deployment provider options
 const (
 	DeployNone         = "none"
@@ -60,6 +66,7 @@ var newCmd = &cobra.Command{
 var (
 	frontendFlag       string
 	cssFrameworkFlag   string
+	themeFlag          string
 	deployProviderFlag string
 	noDBFlag           bool
 )
@@ -67,6 +74,7 @@ var (
 func init() {
 	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
 	newCmd.Flags().StringVarP(&cssFrameworkFlag, "css", "c", "", "CSS framework: daisyui, templui, basecoat")
+	newCmd.Flags().StringVarP(&themeFlag, "theme", "t", "", "Theme: none, caffeine (only for basecoat)")
 	newCmd.Flags().StringVarP(&deployProviderFlag, "deploy", "d", "", "Deployment provider: none, hetzner-caddy")
 	newCmd.Flags().BoolVar(&noDBFlag, "no-db", false, "Skip database setup (Postgres + Goose)")
 	rootCmd.AddCommand(newCmd)
@@ -80,7 +88,7 @@ func Execute() {
 }
 
 func runNew(cmd *cobra.Command, args []string) error {
-	var projectName, modulePath, frontend, cssFramework, deployProvider string
+	var projectName, modulePath, frontend, cssFramework, theme, deployProvider string
 	var includeDB = !noDBFlag
 
 	// Handle arguments
@@ -179,6 +187,36 @@ func runNew(cmd *cobra.Command, args []string) error {
 		cssFramework = CSSFrameworkDaisyUI // Default to DaisyUI
 	}
 
+	// Handle theme selection (only for Basecoat)
+	if cssFramework == CSSFrameworkBasecoat {
+		if themeFlag != "" {
+			theme = themeFlag
+		} else {
+			// Prompt for theme choice
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Theme").
+						Description("Choose a color theme for your project").
+						Options(
+							huh.NewOption("None - Default Basecoat colors", ThemeNone),
+							huh.NewOption("Caffeine - Premium amber/orange theme", ThemeCaffeine),
+						).
+						Value(&theme),
+				),
+			)
+			if err := form.Run(); err != nil {
+				return err
+			}
+		}
+		// Validate theme choice
+		if theme != ThemeNone && theme != ThemeCaffeine {
+			theme = ThemeNone
+		}
+	} else {
+		theme = ThemeNone
+	}
+
 	// Handle DB selection if flag not set
 	if !cmd.Flags().Changed("no-db") {
 		// Ask user if they want DB
@@ -255,9 +293,17 @@ func runNew(cmd *cobra.Command, args []string) error {
 		DeployHetznerCaddy: "Hetzner + Caddy",
 	}[deployProvider]
 
+	themeLabel := "None"
+	if theme == ThemeCaffeine {
+		themeLabel = "Caffeine"
+	}
+
 	fmt.Printf("\n🚀 Creating project '%s' with module '%s'...\n", projectName, modulePath)
 	fmt.Printf("   Frontend: %s\n", frontendLabel)
 	fmt.Printf("   CSS Framework: %s\n", cssLabel)
+	if cssFramework == CSSFrameworkBasecoat {
+		fmt.Printf("   Theme: %s\n", themeLabel)
+	}
 	fmt.Printf("   Database: %s\n", dbLabel)
 	fmt.Printf("   Deployment: %s\n\n", deployLabel)
 
@@ -267,6 +313,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		ModulePath:     modulePath,
 		Frontend:       frontend,
 		CSSFramework:   cssFramework,
+		Theme:          theme,
 		IncludeDB:      includeDB,
 		DeployProvider: deployProvider,
 	}

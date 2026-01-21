@@ -44,6 +44,12 @@ const (
 	CSSFrameworkBasecoat = "basecoat"
 )
 
+// Theme options
+const (
+	ThemeNone     = "none"
+	ThemeCaffeine = "caffeine"
+)
+
 // Deployment provider options
 const (
 	DeployNone         = "none"
@@ -56,6 +62,7 @@ type Options struct {
 	ModulePath     string
 	Frontend       string
 	CSSFramework   string
+	Theme          string
 	IncludeDB      bool
 	DeployProvider string
 }
@@ -297,30 +304,39 @@ RUN sed -i 's|./daisyui.mjs|../js/daisyui.mjs|g' assets/css/input.css
 
 	// Overrides for Basecoat
 	if opts.CSSFramework == CSSFrameworkBasecoat {
+		// Determine input.css content based on theme
+		inputCssContent := `@import "tailwindcss"; @import "./basecoat.min.css";`
+		if opts.Theme == ThemeCaffeine {
+			inputCssContent = `@import "tailwindcss";
+@import "./basecoat.min.css";
+@import "./caffeine.css";
+@import "./custom.css";`
+		}
+
 		setupCmd = fmt.Sprintf(`@echo "📥 Installing Tailwind CSS + Basecoat..."
 	@mkdir -p assets/css assets/js
 	@cd assets && curl -sL daisyui.com/fast | bash
 	@mv assets/tailwindcss ./tailwindcss 2>/dev/null || true
-	@echo "Creating assets/css/index.css..."
-	@echo '@import "tailwindcss"; @import "./basecoat.min.css";' > assets/css/index.css
+	@echo "Creating assets/css/input.css..."
+	@echo '%s' > assets/css/input.css
 	@echo "Cleaning up DaisyUI files..."
-	@rm assets/input.css assets/output.css assets/daisyui.mjs assets/daisyui-theme.mjs 2>/dev/null || true%s`, jsDownloads)
+	@rm assets/input.css assets/output.css assets/daisyui.mjs assets/daisyui-theme.mjs 2>/dev/null || true%s`, inputCssContent, jsDownloads)
 
 		dockerSetupRun = fmt.Sprintf(`RUN cd assets && curl -sL daisyui.com/fast | bash
 RUN mkdir -p assets/js && \
     mv assets/tailwindcss .
-RUN echo '@import "tailwindcss"; @import "./basecoat.min.css";' > assets/css/index.css
+RUN echo '%s' > assets/css/input.css
 RUN rm assets/input.css assets/output.css assets/daisyui* 2>/dev/null || true
 # Download JS
-%s`, dockerJsDownloads)
+%s`, inputCssContent, dockerJsDownloads)
 
 		devCmd = `@make dev-air` // Air handles build
 		cssWatchCmd = `@echo "CSS watching handled by Air"`
-		cssBuildCmd = `@./tailwindcss -i assets/css/index.css -o assets/css/output.css`
+		cssBuildCmd = `@./tailwindcss -i assets/css/input.css -o assets/css/output.css`
 
-		airBuildCmd = `templ generate && ./tailwindcss -i ./assets/css/index.css -o ./assets/css/output.css --minify && go build -o ./tmp/main ./cmd/server`
+		airBuildCmd = `templ generate && ./tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --minify && go build -o ./tmp/main ./cmd/server`
 
-		dockerBuildCss = `RUN ./tailwindcss -i assets/css/index.css -o assets/css/output.css --minify`
+		dockerBuildCss = `RUN ./tailwindcss -i assets/css/input.css -o assets/css/output.css --minify`
 	}
 
 	// Assign values

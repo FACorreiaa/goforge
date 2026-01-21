@@ -54,17 +54,39 @@ dev: ## Start development server with live reload (using Air)
 	@echo "🚀 Starting development server with Air..."
 	@GO_ENV=development air
 
-dev-templ: ## Start development with Templ proxy (auto browser refresh)
-	@echo "🚀 Starting with Templ proxy..."
-	@echo "📡 Access via: http://127.0.0.1:7331 (auto-refresh enabled)"
-	@echo "📡 Direct access: http://localhost:8080 (manual refresh needed)"
-	@GO_ENV=development make -j2 dev-templ-watch dev-tailwind-watch
+# run templ generation in watch mode to detect all .templ files and 
+# re-create _templ.txt files on change, then send reload event to browser. 
+# Default url: http://localhost:7331
+live/templ:
+	templ generate --watch --proxy="http://localhost:8081" --open-browser=false -v
 
-dev-templ-watch:
-	@templ generate --watch --proxy="http://localhost:8080" --cmd="go run ./cmd/server"
+# run air to detect any go file changes to re-build and re-run the server.
+live/server:
+	go run github.com/air-verse/air@v1.63.0 \
+	--build.cmd "go build -o tmp/bin/main ./cmd/server" --build.bin "tmp/bin/main" --build.delay "100" \
+	--build.include_ext "go" \
+	--build.stop_on_error "false" \
+	--misc.clean_on_exit true
 
-dev-tailwind-watch:
-	@sleep 2 && ./tailwindcss -i assets/css/index.css -o assets/css/output.css --watch
+# run tailwindcss to generate the styles.css bundle in watch mode.
+live/tailwind:
+	./tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --minify --watch
+
+# watch for any js or css change in the assets/ folder, then reload the browser via templ proxy.
+live/sync_assets:
+	go run github.com/air-verse/air@v1.63.0 \
+	--build.cmd "templ generate --notify-proxy" \
+	--build.bin "/usr/bin/true" \
+	--build.delay "100" \
+	--build.exclude_dir "tmp,vendor,bin" \
+	--build.include_dir "assets" \
+	--build.include_ext "js,css"
+
+# start all 4 watch processes in parallel.
+live: ## Start development with live reload (templ proxy + tailwind + server)
+	@echo "🚀 Starting live development..."
+	@echo "📡 Access via: http://localhost:7331 (auto-refresh enabled)"
+	make -j4 live/templ live/server live/tailwind live/sync_assets
 
 templ: ## Generate Templ templates once
 	templ generate
