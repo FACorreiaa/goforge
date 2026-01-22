@@ -85,12 +85,35 @@ make docker-compose-up    # Start with docker-compose
 # Quality
 make test             # Run tests
 make lint             # Run golangci-lint
+make fmt              # Format code (templ + gofumpt)
 make test-coverage    # Run tests with coverage
 
 # Utilities
 make clean            # Remove build artifacts
 make help             # Show all commands
 ```
+
+<!-- IF HOOKS -->
+## 🪝 Git Hooks
+
+This project includes pre-commit hooks for code quality:
+
+| Hook | Actions |
+|------|---------|
+| **pre-commit** | `templ fmt` → `templ generate` → `gofumpt` → `golangci-lint` |
+
+The hooks are automatically installed during `make setup`. To reinstall manually:
+
+```bash
+make setup-hooks
+```
+
+To bypass hooks temporarily (not recommended):
+
+```bash
+git commit --no-verify
+```
+<!-- /IF HOOKS -->
 
 ## 🔧 Configuration
 
@@ -168,7 +191,7 @@ The deploy script will:
 1. Build the production binary for Linux
 2. Upload binary and assets via SSH
 3. Restart the systemd service
-<!-- ENDIF -->
+<!-- /IF DEPLOY_HETZNER -->
 
 ## 📚 Resources
 

@@ -35,6 +35,7 @@ const (
 	FrontendHTMX            = "htmx"
 	FrontendHTMXHyperscript = "htmx-hyperscript"
 	FrontendHTMXAlpine      = "htmx-alpine"
+	FrontendHTMXSurreal     = "htmx-surreal"
 )
 
 // CSS Framework options
@@ -64,6 +65,7 @@ type Options struct {
 	CSSFramework   string
 	Theme          string
 	IncludeDB      bool
+	IncludeHooks   bool
 	DeployProvider string
 }
 
@@ -129,6 +131,14 @@ func GenerateWithOptions(opts Options) error {
 			return nil
 		}
 
+		// Skip .githooks directory if IncludeHooks is false
+		if !opts.IncludeHooks && strings.HasPrefix(relPath, ".githooks") {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
 		// Determine target path on user's disk
 		targetPath := filepath.Join(opts.ProjectName, relPath)
 
@@ -172,33 +182,39 @@ func GenerateWithOptions(opts Options) error {
 	})
 }
 
-// processConditionalBlocks removes content between <!-- IF DB --> and <!-- ENDIF --> if condition is false
-// Also supports <!-- IF NOT DB --> and <!-- IF DEPLOY_HETZNER -->
+// processConditionalBlocks removes content between <!-- IF X --> and <!-- /IF X --> if condition is false
+// Supports: <!-- IF DB -->, <!-- IF NOT DB -->, <!-- IF DEPLOY_HETZNER -->, <!-- IF HOOKS -->
 func processConditionalBlocks(content string, opts Options) string {
 	// Process DB blocks
 	if opts.IncludeDB {
 		// Keep content, remove tags
-		content = removeTags(content, "<!-- IF DB -->", "<!-- ENDIF -->")
+		content = removeTags(content, "<!-- IF DB -->", "<!-- /IF DB -->")
 		// Remove NOT DB content
-		content = removeBlock(content, "<!-- IF NOT DB -->", "<!-- ENDIF -->")
+		content = removeBlock(content, "<!-- IF NOT DB -->", "<!-- /IF NOT DB -->")
 	} else {
 		// Remove DB content
-		content = removeBlock(content, "<!-- IF DB -->", "<!-- ENDIF -->")
+		content = removeBlock(content, "<!-- IF DB -->", "<!-- /IF DB -->")
 		// Keep NOT DB content, remove tags
-		content = removeTags(content, "<!-- IF NOT DB -->", "<!-- ENDIF -->")
+		content = removeTags(content, "<!-- IF NOT DB -->", "<!-- /IF NOT DB -->")
 	}
 
 	// Process DEPLOY_HETZNER blocks
 	if opts.DeployProvider == DeployHetznerCaddy {
 		// Keep content, remove tags
-		content = removeTags(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- ENDIF -->")
+		content = removeTags(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- /IF DEPLOY_HETZNER -->")
 	} else {
 		// Remove DEPLOY_HETZNER content
-		content = removeBlock(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- ENDIF -->")
+		content = removeBlock(content, "<!-- IF DEPLOY_HETZNER -->", "<!-- /IF DEPLOY_HETZNER -->")
 	}
 
-	// Note: Simple regex or string manipulation.
-	// Nested blocks not supported with simple logic, but sufficient for this use case.
+	// Process HOOKS blocks
+	if opts.IncludeHooks {
+		// Keep content, remove tags
+		content = removeTags(content, "<!-- IF HOOKS -->", "<!-- /IF HOOKS -->")
+	} else {
+		// Remove HOOKS content
+		content = removeBlock(content, "<!-- IF HOOKS -->", "<!-- /IF HOOKS -->")
+	}
 
 	return content
 }
@@ -253,6 +269,11 @@ func getReplacements(opts Options) map[string]string {
 	@curl -sL -o assets/js/alpinejs.min.js https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js`
 		dockerJsDownloads += ` && \
     curl -sL -o assets/js/alpinejs.min.js https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js`
+	} else if opts.Frontend == FrontendHTMXSurreal {
+		jsDownloads += `
+	@curl -sL -o assets/js/surreal.js https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js`
+		dockerJsDownloads += ` && \
+    curl -sL -o assets/js/surreal.js https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js`
 	}
 
 	if opts.CSSFramework == CSSFrameworkBasecoat {
@@ -370,6 +391,10 @@ func getFrontendScripts(opts Options) string {
 		scripts += `
 			<!-- Alpine.js -->
 			<script defer src="/assets/js/alpinejs.min.js"></script>`
+	case FrontendHTMXSurreal:
+		scripts += `
+			<!-- Surreal -->
+			<script src="/assets/js/surreal.js"></script>`
 	}
 
 	if opts.CSSFramework == CSSFrameworkBasecoat {

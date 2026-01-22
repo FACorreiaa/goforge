@@ -9,13 +9,13 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-<!-- IF DB -->	"github.com/goforge/scaffold/internal/database"<!-- ENDIF -->
+<!-- IF DB -->	"github.com/goforge/scaffold/internal/database"<!-- /IF DB -->
 )
 
 // Server holds the dependencies for HTTP handlers
 type Server struct {
 	port int
-<!-- IF DB -->	db   database.Service<!-- ENDIF -->
+<!-- IF DB -->	db   database.Service<!-- /IF DB -->
 }
 
 // NewServer creates and configures a new HTTP server
@@ -27,7 +27,7 @@ func NewServer() *http.Server {
 
 	s := &Server{
 		port: port,
-<!-- IF DB -->		db:   database.New(),<!-- ENDIF -->
+<!-- IF DB -->		db:   database.New(),<!-- /IF DB -->
 	}
 
 	server := &http.Server{
@@ -46,4 +46,4 @@ func NewServer() *http.Server {
 func (s *Server) GetDB() database.Service {
 	return s.db
 }
-<!-- ENDIF -->
+<!-- /IF DB -->

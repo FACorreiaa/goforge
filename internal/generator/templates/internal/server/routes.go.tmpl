@@ -109,9 +109,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 <!-- IF DB -->	health := s.db.Health()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(health)<!-- ENDIF -->
+	json.NewEncoder(w).Encode(health)<!-- /IF DB -->
 <!-- IF NOT DB -->	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})<!-- ENDIF -->
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})<!-- /IF NOT DB -->
 }
 
 // handleHome renders the home page using Templ

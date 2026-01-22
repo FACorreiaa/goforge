@@ -1,0 +1,61 @@
+#!/bin/bash
+# GoForge Pre-commit Hook
+# Runs: templ fmt, templ generate, gofumpt, golangci-lint
+# =========================================================================
+
+set -e
+
+echo "🔧 Running pre-commit checks..."
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check if required tools are installed
+check_tool() {
+    if ! command -v $1 &> /dev/null; then
+        echo -e "${RED}Error: $1 is not installed${NC}"
+        echo "Run 'make setup' to install required tools"
+        exit 1
+    fi
+}
+
+check_tool templ
+check_tool gofumpt
+check_tool golangci-lint
+
+# Step 1: Format templ files
+echo "📝 Formatting templ files..."
+templ fmt .
+echo -e "${GREEN}✓ Templ files formatted${NC}"
+echo ""
+
+# Step 2: Generate templ files
+echo "⚙️  Generating templ files..."
+templ generate
+echo -e "${GREEN}✓ Templ files generated${NC}"
+echo ""
+
+# Step 3: Format Go code with gofumpt
+echo "🔨 Formatting Go code with gofumpt..."
+gofumpt -l -w .
+echo -e "${GREEN}✓ Go code formatted${NC}"
+echo ""
+
+# Step 4: Stage any formatting changes
+git add -u
+
+# Step 5: Run golangci-lint
+echo "🔍 Running golangci-lint..."
+if ! golangci-lint run; then
+    echo ""
+    echo -e "${RED}✗ Linting failed. Please fix the issues above.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Linting passed${NC}"
+echo ""
+
+echo -e "${GREEN}✅ All pre-commit checks passed!${NC}"

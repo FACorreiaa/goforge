@@ -20,6 +20,7 @@ const (
 	FrontendHTMX            = "htmx"
 	FrontendHTMXHyperscript = "htmx-hyperscript"
 	FrontendHTMXAlpine      = "htmx-alpine"
+	FrontendHTMXSurreal     = "htmx-surreal"
 )
 
 // CSS Framework options
@@ -69,14 +70,16 @@ var (
 	themeFlag          string
 	deployProviderFlag string
 	noDBFlag           bool
+	includeHooksFlag   bool
 )
 
 func init() {
-	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine")
+	newCmd.Flags().StringVarP(&frontendFlag, "frontend", "f", "", "Frontend stack: htmx, htmx-hyperscript, htmx-alpine, htmx-surreal")
 	newCmd.Flags().StringVarP(&cssFrameworkFlag, "css", "c", "", "CSS framework: daisyui, templui, basecoat")
 	newCmd.Flags().StringVarP(&themeFlag, "theme", "t", "", "Theme: none, caffeine (only for basecoat)")
 	newCmd.Flags().StringVarP(&deployProviderFlag, "deploy", "d", "", "Deployment provider: none, hetzner-caddy")
 	newCmd.Flags().BoolVar(&noDBFlag, "no-db", false, "Skip database setup (Postgres + Goose)")
+	newCmd.Flags().BoolVar(&includeHooksFlag, "hooks", false, "Include pre-commit hooks (templ fmt, gofumpt, golangci-lint)")
 	rootCmd.AddCommand(newCmd)
 }
 
@@ -90,6 +93,7 @@ func Execute() {
 func runNew(cmd *cobra.Command, args []string) error {
 	var projectName, modulePath, frontend, cssFramework, theme, deployProvider string
 	var includeDB = !noDBFlag
+	var includeHooks = includeHooksFlag
 
 	// Handle arguments
 	if len(args) >= 2 {
@@ -145,6 +149,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 						huh.NewOption("HTMX only", FrontendHTMX),
 						huh.NewOption("HTMX + Hyperscript (_hyperscript)", FrontendHTMXHyperscript),
 						huh.NewOption("HTMX + Alpine.js", FrontendHTMXAlpine),
+						huh.NewOption("HTMX + Surreal", FrontendHTMXSurreal),
 					).
 					Value(&frontend),
 			),
@@ -155,7 +160,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate frontend choice
-	if frontend != FrontendHTMX && frontend != FrontendHTMXHyperscript && frontend != FrontendHTMXAlpine {
+	if frontend != FrontendHTMX && frontend != FrontendHTMXHyperscript && frontend != FrontendHTMXAlpine && frontend != FrontendHTMXSurreal {
 		frontend = FrontendHTMX // Default to HTMX only
 	}
 
@@ -260,6 +265,21 @@ func runNew(cmd *cobra.Command, args []string) error {
 		deployProvider = DeployNone // Default to no deployment
 	}
 
+	// Handle hooks selection if flag not set
+	if !cmd.Flags().Changed("hooks") {
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Include Git Hooks?").
+					Description("Pre-commit: templ fmt, gofumpt, golangci-lint").
+					Value(&includeHooks),
+			),
+		)
+		if err := form.Run(); err != nil {
+			return err
+		}
+	}
+
 	// Get absolute path
 	absPath, err := filepath.Abs(projectName)
 	if err != nil {
@@ -275,6 +295,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		FrontendHTMX:            "HTMX",
 		FrontendHTMXHyperscript: "HTMX + Hyperscript",
 		FrontendHTMXAlpine:      "HTMX + Alpine.js",
+		FrontendHTMXSurreal:     "HTMX + Surreal",
 	}[frontend]
 
 	cssLabel := map[string]string{
@@ -305,7 +326,13 @@ func runNew(cmd *cobra.Command, args []string) error {
 		fmt.Printf("   Theme: %s\n", themeLabel)
 	}
 	fmt.Printf("   Database: %s\n", dbLabel)
-	fmt.Printf("   Deployment: %s\n\n", deployLabel)
+	fmt.Printf("   Deployment: %s\n", deployLabel)
+	if includeHooks {
+		fmt.Printf("   Git Hooks: Yes (pre-commit)\n")
+	} else {
+		fmt.Printf("   Git Hooks: No\n")
+	}
+	fmt.Println("")
 
 	// Generate the project with options
 	opts := generator.Options{
@@ -315,6 +342,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 		CSSFramework:   cssFramework,
 		Theme:          theme,
 		IncludeDB:      includeDB,
+		IncludeHooks:   includeHooks,
 		DeployProvider: deployProvider,
 	}
 	if err := generator.GenerateWithOptions(opts); err != nil {

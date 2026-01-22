@@ -13,7 +13,7 @@ BINARY_NAME := server
 <!-- IF DB --># Database settings
 DB_DSN ?= postgres://localhost:5432/$(PROJECT_NAME)?sslmode=disable
 GOOSE_DRIVER := postgres
-GOOSE_MIGRATION_DIR := ./internal/database/migrations<!-- ENDIF -->
+GOOSE_MIGRATION_DIR := ./internal/database/migrations<!-- /IF DB -->
 
 .PHONY: all build run test clean dev setup help
 
@@ -27,11 +27,14 @@ setup: ## Install all development tools
 	@echo "📦 Installing Go tools..."
 	go install github.com/a-h/templ/cmd/templ@latest
 	go install github.com/air-verse/air@latest
-<!-- IF DB -->	go install github.com/pressly/goose/v3/cmd/goose@latest<!-- ENDIF -->
+	go install mvdan.cc/gofumpt@latest
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+<!-- IF DB -->	go install github.com/pressly/goose/v3/cmd/goose@latest<!-- /IF DB -->
 
 	@echo "🧹 Tidying modules..."
 	@go mod tidy
 	<!-- SETUP_COMMAND -->
+<!-- IF HOOKS -->	@$(MAKE) setup-hooks<!-- /IF HOOKS -->
 	@echo ""
 	@echo "✅ Setup complete! Run 'make dev' to start development."
 
@@ -129,6 +132,25 @@ test-coverage: ## Run tests with coverage
 lint: ## Run golangci-lint
 	golangci-lint run
 
+fmt: ## Format code with gofumpt and templ fmt
+	@echo "📝 Formatting templ files..."
+	templ fmt .
+	@echo "🔨 Formatting Go code with gofumpt..."
+	gofumpt -l -w .
+	@echo "✅ Formatting complete!"
+
+<!-- IF HOOKS -->
+# =========================================================================
+# Git Hooks
+# =========================================================================
+
+setup-hooks: ## Install git hooks for code quality
+	@echo "🪝 Installing git hooks..."
+	@chmod +x .githooks/pre-commit
+	@git config core.hooksPath .githooks
+	@echo "✅ Git hooks installed (pre-commit: templ fmt, gofumpt, golangci-lint)"
+<!-- /IF HOOKS -->
+
 <!-- IF DB -->
 # =========================================================================
 # Database (Goose)
@@ -149,7 +171,7 @@ db-reset: ## Rollback all migrations
 db-create: ## Create a new migration
 	@read -p "Enter migration name: " name; \
 	goose -dir $(GOOSE_MIGRATION_DIR) create $$name sql
-<!-- ENDIF -->
+<!-- /IF DB -->
 
 # =========================================================================
 # Docker
@@ -179,7 +201,7 @@ deploy: build ## Deploy to Hetzner VPS
 deploy-setup: ## Setup deployment on remote server (first time only)
 	@echo "📦 Setting up Hetzner VPS..."
 	@./deploy/setup-server.sh
-<!-- ENDIF -->
+<!-- /IF DEPLOY_HETZNER -->
 
 # =========================================================================
 # Help

@@ -15,7 +15,7 @@ services:
 <!-- IF DB -->      - DATABASE_URL=postgres://postgres:postgres@db:5432/myapp?sslmode=disable
     depends_on:
       db:
-        condition: service_healthy<!-- ENDIF -->
+        condition: service_healthy<!-- /IF DB -->
     restart: unless-stopped
     networks:
       - app-network
@@ -38,7 +38,7 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - app-network<!-- ENDIF -->
+      - app-network<!-- /IF DB -->
 
   # Redis (optional - for sessions/caching)
   # redis:
@@ -52,7 +52,7 @@ services:
   #     - app-network
 
 volumes:
-<!-- IF DB -->  postgres_data:<!-- ENDIF -->
+<!-- IF DB -->  postgres_data:<!-- /IF DB -->
   # redis_data:
 
 networks:
